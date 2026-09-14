@@ -1,0 +1,83 @@
+                    IPL RAW DATA
+                 matches.csv
+               deliveries.csv
+                      │
+                      ▼
+              ┌─────────────────┐
+              │   S3 BRONZE     │
+              │   Raw Layer     │
+              └────────┬────────┘
+                       │
+                 S3 Event Trigger
+                       │
+                       ▼
+              ┌─────────────────┐
+              │     LAMBDA      │
+              │ File Validator  │
+              └────────┬────────┘
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+       Valid                     Invalid
+          │                         │
+          ▼                         ▼
+    Step Functions             Error Layer
+          │
+          ▼
+   ┌──────────────────┐
+   │   GLUE PYSPARK   │
+   │ Bronze → Silver  │
+   └────────┬─────────┘
+            │
+            ▼
+     ┌───────────────┐
+     │  S3 SILVER    │
+     │ Clean Parquet │
+     └───────┬───────┘
+             │
+             ▼
+       Glue Crawler
+             │
+             ▼
+      Glue Data Catalog
+             │
+             ▼
+          Athena
+             │
+             │
+             ▼
+     ┌──────────────────────┐
+     │   SILVER DATA        │
+     │  Business-ready data │
+     └──────────┬───────────┘
+                │
+                ▼
+        ┌────────────────┐
+        │  GLUE PYSPARK  │
+        │ Silver → Gold  │
+        └───────┬────────┘
+                │
+        ┌───────┼─────────┬──────────┬──────────┐
+        ▼       ▼         ▼          ▼          ▼
+      Team    Season    Venue      Toss     Margin
+      Wins    Summary   Summary   Analysis   Summary
+        │       │         │          │          │
+        └───────┴─────────┴──────────┴──────────┘
+                         │
+                         ▼
+                   ┌───────────┐
+                   │ S3 GOLD   │
+                   │ Parquet   │
+                   └─────┬─────┘
+                         │
+                         ▼
+                    Glue Crawler
+                         │
+                         ▼
+                  Glue Data Catalog
+                         │
+                         ▼
+                      Athena
+                         │
+                         ▼
+                 Business Analysis

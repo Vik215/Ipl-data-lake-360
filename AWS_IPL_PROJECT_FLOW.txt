@@ -1,0 +1,125 @@
+
+Stage					AWS 						    Service	   Purpose
+1. Store				S3							    Store raw IPL data(Data lake storage layer)
+2. Validate				Lambda						    Check incoming file
+3. Orchestrate			Step Functions				    Control workflow/retries
+4. Transform			Glue PySpark				    Clean and transform data
+5. Catalog				Glue Crawler/Data Catalog		Create metadata/schema
+6. Analyze				Athena							Query S3 data using SQL
+7. Aggregate			Glue → Gold					    Create business datasets
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------    
+                IPL RAW DATA
+                 matches.csv
+               deliveries.csv
+                      │
+                      ▼
+              ┌─────────────────┐
+              │   S3 BRONZE     │     Data lake storage layer
+              │   Raw Layer     │
+              └────────┬────────┘
+                       │
+                 S3 Event Trigger		how does s3 event notification works ? 
+                       │
+                       ▼
+              ┌─────────────────┐			*******LAMBDA IAM Role - ((Read s3 bucket and write cloudwatch logs))******
+              │     LAMBDA      │				   Reads bucket name
+              │ File Validator  │  				   csv validation, record count, required column check 
+              └────────┬────────┘				   Cloudwatch recieves details- validation result (involves above all) - Encountered one IAM issue
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+       Valid                     Invalid           
+          │                         │
+          ▼                         ▼      *********STEP FUNCTION IAM ROLE - ((Invoke lambda and run GLUE Jobs))********
+    Step Functions             Error Layer        why not so many lambda? why step function ? (orchestration and configure retry,failure,paralel exec)
+          │
+          ▼
+   ┌──────────────────┐      Duplication, null check, schema validation
+   │   GLUE PYSPARK   │      Data-quality matrics(before-after count)
+   │ Bronze → Silver  │      why parquet(columnar, compressed,easy for athena,efficient for analytical queries)
+   └────────┬─────────┘
+            │
+            ▼
+     ┌───────────────┐
+     │  S3 SILVER    │		Clean, validated, enriched data 
+     │ Clean Parquet │
+     └───────┬───────┘
+             │
+             ▼
+       Glue Crawler						Crawler will scan the s3 data and discover location, schema,column name, data type(Metadata)
+             │						    It then creates/updates metadata in the Data Catalog
+             ▼
+      Glue Data Catalog					Data catalog = metadata repository.(Catalog stores the information about data )
+             │
+             ▼
+          Athena						Athena runs the SQL Query using the catalog metadata
+             │
+             │
+             ▼
+     ┌──────────────────────┐
+     │   SILVER DATA        │
+     │  Business-ready data │
+     └──────────┬───────────┘
+                │
+                ▼
+        ┌────────────────┐
+        │  GLUE PYSPARK  │   ************GLUE Execution ROLE  (Read s3, transform, write to S3)  *************************
+        │ Silver → Gold  │
+        └───────┬────────┘
+                │
+        ┌───────┼─────────┬──────────┬──────────┐
+        ▼       ▼         ▼          ▼          ▼
+      Team    Season    Venue      Toss     Margin
+      Wins    Summary   Summary   Analysis   Summary
+        │       │         │          │          │
+        └───────┴─────────┴──────────┴──────────┘
+                         │
+                         ▼
+                   ┌───────────┐
+                   │ S3 GOLD   │
+                   │ Parquet   │
+                   └─────┬─────┘
+                         │
+                         ▼
+                    Glue Crawler
+                         │
+                         ▼
+                  Glue Data Catalog
+                         │
+                         ▼
+                      Athena
+                         │
+                         ▼
+                 Business Analysis
+				 
+				 
+				 
+				 
+				 
+				 
+I built an end-to-end IPL data engineering pipeline on AWS using Medallion Architecture. I used Amazon S3 as the data lake and divided it into Bronze, Silver, Gold and Error layers.
+
+
+Raw IPL CSV files are first uploaded into the Bronze layer. An S3 event triggers a Python Lambda function, which validates the incoming file by checking the file type, required columns and record count. The Lambda also logs validation details to CloudWatch.
+
+
+After validation, AWS Step Functions orchestrates the ETL workflow. I used Step Functions because it provides sequencing, retry and error-handling capabilities and allows independent Gold transformations to run in parallel.
+
+
+The Bronze data is processed using AWS Glue PySpark. In the Silver transformation, I performed data-quality checks such as duplicate removal, null validation and schema checks. I also created derived business columns such as match year, month, winner flag, match status and winning-margin category. The transformed data is stored as Parquet in the Silver S3 layer.
+
+
+I then used a Glue Crawler to discover the Parquet schema and populate the Glue Data Catalog. Amazon Athena uses this catalog metadata to query the Silver data directly from S3.
+
+
+From the Silver layer, I created multiple Gold datasets using separate Glue jobs, including Team Wins, Season Summary, Venue Summary, Toss Analysis and Winning Margin Summary. These transformations are independent, so I designed them to run in parallel using Step Functions.
+
+
+The Gold datasets are also stored in Parquet in S3, cataloged using Glue Crawler, and queried through Athena for business analysis.
+
+
+So overall, the pipeline follows the flow: S3 Bronze → Lambda Validation → Step Functions → Glue Silver → Glue Catalog/Athena → Glue Gold → Glue Catalog/Athena
+
+
