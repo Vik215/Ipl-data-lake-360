@@ -1,0 +1,42 @@
+Airflow-Autosys-Stepfunction
+
+
+
+Autosys
+-An enterprise job scheduling and workload automation tool 
+--used for Large On-prem environment (ex- Aerospace, Banking)
+--Use JIL (Job information language) to define jobs details(Job name, command condition, schedule)
+--Job depndencies via condition(A job will runs only when B job Succeeds)
+--BOX jobs (A container job that groupd related jobs together)
+--Calenders and Job states (scheduling- weekend jobs week day jobs, on specific dates (Month end)) job states - Success, failure, on hold, on ice
+--Autosys WCC View logs , manage force starting of job
+
+
+
+
+Apache Airflow
+--An open-source , python based workflow orchestration tool.widely used in cloud/data engineering
+Core Concepts 
+--DAG   DIRECTED ACYCLIC GRAPH -a python file describing task, their dependencies, DIRECTED(Task flows in one direction) , ACYCLIC( No loops back)
+--Task   A Single unit of work within a DAG, which can be running a SPARK job , execute SQL or call na API
+--Operator The type of task- PYTHONOPERATOR,BASHOPERATOR etc -- defines what kind of action a task performs.
+--Task dependencies  task a >> tasb b (task b will run after a gets succeefful)
+--Scheduler    Its a Components which decided when a DAG should run.
+--Executor     Determines how tasks actually run (Localexecutor, CELERYExevutor)
+--Sensors      special task like (To he)
+--Retries       retries=3
+--AirflowUI  DAG Graph view
+--XComs     Passing Small data betweeen tasks
+
+
+
+Step-functions
+-- AWS-Native, Serverless orchestration for coordinating AWS services(Lambda,Glue,ECS,SNS)
+--State Machine - Overall workflow definition 
+--State   Individual steps: Task, choices, wait, succedd, failure
+--Task state   Executes work-invokes lambda, Glue jobs, ECS task.
+--Choice state  Conditional branching
+--Parallel state  Runs multiple branches simultaneously 
+--Retry     MAXATTEMPTS, IntervalSeconds
+--Catch  fallback behaviour 
+--Standard Vs Express     Standard - Long-running (Exactly once), Express = high volume, short duration(At-least once)
